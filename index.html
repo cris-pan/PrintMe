@@ -198,7 +198,8 @@
     segments: 0, mediaRecorder: null, chunks: [], recording: false, 
     cards: [], currentIndex: 0, generatingSeg: -1, typingTimer: null,
     audioUrls: [], // 保存录制的原声音频 URL
-    currentAudio: null // 当前正在播放的 Audio 对象
+    currentAudio: null, // 当前正在播放的 Audio 对象
+    audioMimeType: ''   // 记录支持的音频格式
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -229,21 +230,30 @@
   recordBtn.addEventListener('pointerup', stopRecording);
   recordBtn.addEventListener('pointerleave', function () { if (state.recording) stopRecording(); });
   
-  function startRecording(e) {
+    function startRecording(e) {
     e.preventDefault(); if (state.recording) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { recordHint.textContent = '当前浏览器不支持录音'; return; }
     
-    // 停止当前正在播放的音频
     stopAudio();
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
-      state.chunks = []; state.mediaRecorder = new MediaRecorder(stream);
+      // 【修改点】检测浏览器支持的音频格式，优先用 mp4，其次是 webm
+      var options = { mimeType: 'audio/mp4' };
+      if (!MediaRecorder.isTypeSupported('audio/mp4')) {
+         options = { mimeType: 'audio/webm' };
+      }
+      state.audioMimeType = options.mimeType;
+
+      state.chunks = []; 
+      state.mediaRecorder = new MediaRecorder(stream, options);
+      
       state.mediaRecorder.ondataavailable = function (ev) { if (ev.data.size > 0) state.chunks.push(ev.data); };
+      
       state.mediaRecorder.onstop = function () {
         stream.getTracks().forEach(function (t) { t.stop(); });
         
-        // 生成音频 Blob 并保存 URL
-        var blob = new Blob(state.chunks, { type: 'audio/webm' });
+        // 【修改点】使用检测到的格式生成 Blob
+        var blob = new Blob(state.chunks, { type: state.audioMimeType });
         var url = URL.createObjectURL(blob);
         state.audioUrls.push(url); 
 
@@ -252,8 +262,11 @@
         generateSegment(state.segments - 1);
       };
       state.mediaRecorder.start(); state.recording = true; recordBtn.classList.add('recording'); recordHint.textContent = '正在录音…松手结束';
-    }).catch(function () { recordHint.textContent = '无法访问麦克风，请检查权限'; });
+    }).catch(function (err) { 
+      recordHint.textContent = '无法访问麦克风：' + err.message; 
+    });
   }
+ 
   function stopRecording() { if (!state.recording || !state.mediaRecorder) return; state.recording = false; recordBtn.classList.remove('recording'); try { state.mediaRecorder.stop(); } catch (e) {} }
 
   function generateSegment(segIndex) {
