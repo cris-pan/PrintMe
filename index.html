@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小绘本 · Demo v2</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: #fdf8f0;
+    color: #3a3a3a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; font-size: 17px; font-weight: 600; color: #c0603a;
+  }
+  .topbar .parent-entry {
+    font-size: 13px; font-weight: 400; color: #999;
+    border: 1px solid #ddd; border-radius: 14px; padding: 4px 10px;
+    cursor: pointer; display: none;
+  }
+  .view { flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+  .view.active { display: flex; }
+
+  /* 模式 A */
+  .hero-title { font-size: 26px; font-weight: 700; color: #c0603a; margin-bottom: 6px; text-align: center; }
+  .hero-sub { font-size: 14px; color: #8a7a6a; margin-bottom: 32px; text-align: center; }
+  .field { width: 100%; max-width: 340px; margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: #999; margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 13px 14px; font-size: 16px;
+    border: 1px solid #e3d8cc; border-radius: 10px; background: #fff; outline: none;
+  }
+  .field input:focus { border-color: #c0603a; }
+  .code-row { display: flex; gap: 10px; }
+  .code-row input { flex: 1; }
+  .btn-send {
+    padding: 0 16px; font-size: 14px; border: 1px solid #c0603a; color: #c0603a;
+    background: #fff; border-radius: 10px; white-space: nowrap; cursor: pointer;
+  }
+  .btn-send:disabled { opacity: 0.4; cursor: default; }
+  .agree-row {
+    width: 100%; max-width: 340px; display: flex; align-items: flex-start; gap: 8px;
+    font-size: 12px; color: #777; margin: 8px 0 22px; line-height: 1.5;
+  }
+  .agree-row input { margin-top: 3px; flex-shrink: 0; }
+  .agree-row a { color: #c0603a; text-decoration: underline; }
+  .btn-primary {
+    width: 100%; max-width: 340px; padding: 15px; font-size: 17px; font-weight: 600;
+    color: #fff; background: #c0603a; border: none; border-radius: 12px; cursor: pointer;
+  }
+  .btn-primary:disabled { background: #d8c4b8; cursor: default; }
+  .btn-quit { margin-top: 18px; font-size: 13px; color: #aaa; background: none; border: none; text-decoration: underline; cursor: pointer; }
+
+  /* 模式 B */
+  .record-wrap { display: flex; flex-direction: column; align-items: center; margin-top: 10px; }
+  .record-btn {
+    width: 140px; height: 140px; border-radius: 50%; background: #e07a52; color: #fff;
+    font-size: 17px; font-weight: 600; border: none; box-shadow: 0 8px 24px rgba(192,96,58,0.3);
+    display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px;
+    user-select: none; touch-action: none;
+  }
+  .record-btn.recording { background: #b34a2a; transform: scale(1.06); box-shadow: 0 0 0 12px rgba(224,122,82,0.2); }
+  .record-btn .icon { font-size: 34px; }
+  .record-hint { margin-top: 16px; font-size: 14px; color: #999; text-align: center; }
+  .seg-count { margin-top: 8px; font-size: 14px; color: #c0603a; font-weight: 600; }
+  .note { font-size: 12px; color: #aaa; margin-top: 10px; text-align: center; }
+
+  /* 模式 C：卡片预览 */
+  #viewC { justify-content: flex-start; padding-top: 12px; overflow-y: auto; }
+  .card-stage {
+    width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center;
+  }
+  .card-box {
+    width: 100%; background: #fff; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.08); position: relative;
+  }
+  .card-img {
+    width: 100%; aspect-ratio: 1 / 1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 60px; background: linear-gradient(135deg, #ffe9d6, #ffd8b8);
+    color: #c0603a; user-select: none;
+  }
+  .card-img.generating { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
+  .ai-badge {
+    position: absolute; top: 10px; right: 10px; font-size: 10px; color: #fff;
+    background: rgba(0,0,0,0.35); padding: 2px 7px; border-radius: 8px; letter-spacing: 0.5px;
+  }
+  .card-narration {
+    padding: 12px 16px; font-size: 14px; color: #a08a78; line-height: 1.5; font-style: italic;
+  }
+  .card-narration::before { content: "“"; }
+  .card-narration::after { content: "”"; }
+  .card-actions { display: flex; gap: 10px; margin-top: 14px; width: 100%; max-width: 420px; }
+  .btn-secondary {
+    flex: 1; padding: 12px; font-size: 15px; border-radius: 10px;
+    border: 1px solid #e3d8cc; background: #fff; color: #8a7a6a; cursor: pointer;
+  }
+  .btn-secondary:disabled { opacity: 0.5; cursor: default; }
+  .btn-secondary.keep { background: #c0603a; color: #fff; border-color: #c0603a; }
+  .card-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; max-width: 420px; margin-top: 16px; font-size: 13px; color: #999;
+  }
+  .card-nav button {
+    background: none; border: none; color: #c0603a; font-size: 13px; cursor: pointer; padding: 6px 10px;
+  }
+  .card-nav button:disabled { color: #ddd; cursor: default; }
+  .card-strip {
+    display: flex; gap: 8px; overflow-x: auto; width: 100%; max-width: 420px;
+    margin-top: 16px; padding-bottom: 6px;
+  }
+  .thumb {
+    width: 54px; height: 54px; border-radius: 10px; flex-shrink: 0;
+    background: #ffe9d6; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: #c0603a; border: 2px solid transparent; cursor: pointer;
+  }
+  .thumb.active { border-color: #c0603a; }
+  .thumb.generating { animation: pulse 1.2s ease-in-out infinite; }
+  .bottom-actions {
+    width: 100%; max-width: 420px; margin-top: 18px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: rgba(58,58,58,0.92); color: #fff; font-size: 13px;
+    padding: 10px 18px; border-radius: 20px; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; z-index: 200; max-width: 80%; text-align: center;
+  }
+  .toast.show { opacity: 1; }
+
+  /* PIN 弹层 */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center; z-index: 100; padding: 24px;
+  }
+  .overlay.active { display: flex; }
+  .pin-card { background: #fff; border-radius: 16px; padding: 26px 22px; width: 100%; max-width: 320px; text-align: center; }
+  .pin-card h3 { margin: 0 0 8px; font-size: 17px; color: #3a3a3a; }
+  .pin-card p { margin: 0 0 16px; font-size: 13px; color: #999; line-height: 1.5; }
+  .pin-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 18px; }
+  .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #e0d4c8; }
+  .pin-dot.filled { background: #c0603a; border-color: #c0603a; }
+  .pin-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .pin-key { padding: 14px; font-size: 20px; border-radius: 10px; border: 1px solid #eee; background: #fafafa; cursor: pointer; }
+  .pin-key:active { background: #f0e4d8; }
+  .pin-key.del { color: #c0603a; }
+  .pin-error { color: #d04040; font-size: 13px; margin-top: 10px; min-height: 18px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span>🎨 小绘本</span>
+  <span class="parent-entry" id="parentEntry">家长</span>
+</div>
+
+<!-- 模式 A：家长验证 -->
+<div class="view active" id="viewA">
+  <div class="hero-title">把孩子讲的故事，变成一本书</div>
+  <div class="hero-sub">先由家长验证，孩子才能开始录音</div>
+  <div class="field">
+    <label>家长手机号</label>
+    <input type="tel" id="phone" placeholder="请输入手机号" maxlength="11" inputmode="numeric">
+  </div>
+  <div class="field">
+    <label>验证码</label>
+    <div class="code-row">
+      <input type="tel" id="code" placeholder="6 位验证码" maxlength="6" inputmode="numeric">
+      <button class="btn-send" id="btnSend" disabled>获取验证码</button>
+    </div>
+  </div>
+  <div class="agree-row">
+    <input type="checkbox" id="agree">
+    <label for="agree">
+      我已阅读并同意 <a href="#" onclick="alert('此处应展示完整的《儿童个人信息保护规则》，包含处理目的、存储期限、拒绝后果、投诉渠道等。');return false;">《儿童个人信息保护规则》</a>。我确认我是孩子的监护人。
+    </label>
+  </div>
+  <button class="btn-primary" id="btnStart" disabled>验证并开启</button>
+  <button class="btn-quit" onclick="alert('已退出。我们不收集任何信息。')">不同意并退出</button>
+</div>
+
+<!-- 模式 B：孩子录音 -->
+<div class="view" id="viewB">
+  <div class="record-wrap">
+    <button class="record-btn" id="recordBtn">
+      <span class="icon">🎤</span>
+      <span>按住说话</span>
+    </button>
+    <div class="record-hint" id="recordHint">孩子说完一段，松手即可</div>
+    <div class="seg-count" id="segCount"></div>
+  </div>
+  <div class="bottom-actions">
+    <button class="btn-primary" id="btnGenerate" disabled>看看我的故事卡片</button>
+  </div>
+  <div class="note">录音仅用于转成文字，转完后音频立即删除</div>
+</div>
+
+<!-- 模式 C：卡片预览 -->
+<div class="view" id="viewC">
+  <div class="card-stage">
+    <div class="card-box">
+      <div class="card-img" id="cardImg">🌙</div>
+      <div class="ai-badge">AI生成</div>
+      <div class="card-narration" id="cardNarration"></div>
+    </div>
+    <div class="card-actions">
+      <button class="btn-secondary" id="btnRedraw">换一张</button>
+      <button class="btn-secondary keep" id="btnKeep">就是这张</button>
+    </div>
+    <div class="card-nav">
+      <button id="btnPrev">← 上一张</button>
+      <span id="cardIndex">第 1 张 / 共 1 张</span>
+      <button id="btnNext">下一张 →</button>
+    </div>
+    <div class="card-strip" id="cardStrip"></div>
+    <div class="bottom-actions">
+      <button class="btn-primary" id="btnBackRecord">继续录下一段</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN 弹层 -->
+<div class="overlay" id="pinOverlay">
+  <div class="pin-card">
+    <h3 id="pinTitle">设置家长密码</h3>
+    <p id="pinDesc">4 位数字，用于进入家长功能</p>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-keys" id="pinKeys"></div>
+    <div class="pin-error" id="pinError"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  // ---------- 模拟分镜库（真实产品由大模型返回） ----------
+  // 每个元素是一"段"录音对应的卡片数组。逐段异步生成时，按顺序追加。
+  var MOCK_CARDS = [
+    [ // 第 1 段：月亮
+      { narration: "为什么月亮一直跟着我们 我们走到哪儿 他就在哪儿 它真的好亮啊",
+        visual: "夜晚的路上，一个小孩抬头看着天上又圆又亮的月亮，月亮在小孩头顶上方",
+        emoji: "🌙" }
+    ],
+    [ // 第 2 段：唱歌 + 摩托车（同场景合并）
+      { narration: "我们 嗯 妈妈 我们唱歌吧 / 这个哥哥的开着摩托车 好快 轰轰声",
+        visual: "小孩转头看着妈妈张嘴像要说话，旁边一辆摩托车开过，车轮后面有速度线",
+        emoji: "🏍️" }
+    ],
+    [ // 第 3 段：幼儿园两件事
+      { narration: "阳阳在幼儿园牙齿掉了 然后 然后他哭了",
+        visual: "幼儿园里，一个小孩捂着嘴巴，眼睛下面有泪珠，旁边站着几个小朋友看着他",
+        emoji: "🦷" },
+      { narration: "菲菲要当小组长 管我们不要说话 还要管理玩具 好累的",
+        visual: "一个扎辫子的小女孩站在一群小朋友前面，一只手举起来，旁边有一筐玩具",
+        emoji: "🧸" }
+    ]
+  ];
+
+  // ---------- 状态 ----------
+  var state = {
+    phone: '', agreed: false,
+    pinSet: false, pinValue: '', pinMode: '', pinInput: '',
+    segments: 0,
+    mediaRecorder: null, chunks: [], recording: false,
+    cards: [],          // 已生成的卡片（扁平）
+    currentIndex: 0,
+    generatingSeg: -1   // 正在生成的段索引
+  };
+
+  // ---------- 元素 ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var viewA = $('viewA'), viewB = $('viewB'), viewC = $('viewC');
+  var parentEntry = $('parentEntry');
+  var phoneInput = $('phone'), codeInput = $('code'), btnSend = $('btnSend'), agree = $('agree'), btnStart = $('btnStart');
+  var recordBtn = $('recordBtn'), recordHint = $('recordHint'), segCount = $('segCount'), btnGenerate = $('btnGenerate');
+  var cardImg = $('cardImg'), cardNarration = $('cardNarration');
+  var btnRedraw = $('btnRedraw'), btnKeep = $('btnKeep');
+  var btnPrev = $('btnPrev'), btnNext = $('btnNext'), cardIndex = $('cardIndex'), cardStrip = $('cardStrip');
+  var btnBackRecord = $('btnBackRecord');
+  var pinOverlay = $('pinOverlay'), pinTitle = $('pinTitle'), pinDesc = $('pinDesc'), pinDots = $('pinDots'), pinKeys = $('pinKeys'), pinError = $('pinError');
+  var toastEl = $('toast');
+
+  function showView(v) {
+    [viewA, viewB, viewC].forEach(function (el) { el.classList.remove('active'); });
+    v.classList.add('active');
+  }
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(function () { toastEl.classList.remove('show'); }, 2000);
+  }
+
+  // ---------- 模式 A ----------
+  phoneInput.addEventListener('input', function () {
+    state.phone = phoneInput.value.trim();
+    btnSend.disabled = state.phone.length !== 11;
+    checkStart();
+  });
+  codeInput.addEventListener('input', checkStart);
+  agree.addEventListener('change', function () { state.agreed = agree.checked; checkStart(); });
+  function checkStart() {
+    btnStart.disabled = !(state.phone.length === 11 && codeInput.value.trim().length === 6 && state.agreed);
+  }
+  btnSend.addEventListener('click', function () {
+    btnSend.disabled = true;
+    var sec = 60; btnSend.textContent = sec + 's';
+    var timer = setInterval(function () {
+      sec--;
+      if (sec <= 0) { clearInterval(timer); btnSend.textContent = '获取验证码'; btnSend.disabled = state.phone.length !== 11; }
+      else btnSend.textContent = sec + 's';
+    }, 1000);
+    codeInput.value = '123456'; checkStart();
+  });
+  btnStart.addEventListener('click', function () {
+    showView(viewB);
+    parentEntry.style.display = 'inline-block';
+  });
+
+  // ---------- 模式 B：录音 ----------
+  recordBtn.addEventListener('pointerdown', startRecording);
+  recordBtn.addEventListener('pointerup', stopRecording);
+  recordBtn.addEventListener('pointerleave', function () { if (state.recording) stopRecording(); });
+
+  function startRecording(e) {
+    e.preventDefault();
+    if (state.recording) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      recordHint.textContent = '当前浏览器不支持录音，请换用 Safari/Chrome'; return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      state.chunks = [];
+      state.mediaRecorder = new MediaRecorder(stream);
+      state.mediaRecorder.ondataavailable = function (ev) { if (ev.data.size > 0) state.chunks.push(ev.data); };
+      state.mediaRecorder.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        state.segments++;
+        segCount.textContent = '已录 ' + state.segments + ' 段（音频已丢弃）';
+        recordHint.textContent = '可以继续说，或看看卡片';
+        btnGenerate.disabled = false;
+        // 逐段异步生成：录音一结束，后台开始生成这一段的卡片
+        generateSegment(state.segments - 1);
+      };
+      state.mediaRecorder.start();
+      state.recording = true;
+      recordBtn.classList.add('recording');
+      recordHint.textContent = '正在录音…松手结束';
+    }).catch(function () { recordHint.textContent = '无法访问麦克风，请检查权限'; });
+  }
+  function stopRecording() {
+    if (!state.recording || !state.mediaRecorder) return;
+    state.recording = false;
+    recordBtn.classList.remove('recording');
+    try { state.mediaRecorder.stop(); } catch (e) {}
+  }
+
+  // 模拟"异步生成"：真实产品这里调 ASR + 大模型 + 文生图
+  function generateSegment(segIndex) {
+    if (segIndex >= MOCK_CARDS.length) return;
+    state.generatingSeg = segIndex;
+    // 先在卡片列表里占位（带 generating 标记）
+    var group = MOCK_CARDS[segIndex];
+    group.forEach(function (card) {
+      state.cards.push({
+        narration: card.narration, visual: card.visual,
+        emoji: card.emoji, generating: true, segIndex: segIndex
+      });
+    });
+    // 模拟网络延迟 1.2s 后"画好"
+    setTimeout(function () {
+      state.cards.forEach(function (c) {
+        if (c.segIndex === segIndex) { c.generating = false; c.emoji = c.emoji || '🖼️'; }
+      });
+      state.generatingSeg = -1;
+      // 如果当前不在卡片页，提示一下
+      if (!viewC.classList.contains('active')) {
+        toast('第 ' + (segIndex + 1) + ' 段的卡片画好了');
+      } else {
+        renderCard();
+      }
+    }, 1200);
+  }
+
+  btnGenerate.addEventListener('click', function () {
+    if (state.cards.length === 0) { toast('还没有卡片，先录一段吧'); return; }
+    state.currentIndex = 0;
+    showView(viewC);
+    renderCard();
+  });
+
+  // ---------- 模式 C：卡片预览 ----------
+  function currentCard() { return state.cards[state.currentIndex]; }
+
+  function renderCard() {
+    var card = currentCard();
+    if (!card) return;
+    // 画面
+    if (card.generating) {
+      cardImg.classList.add('generating');
+      cardImg.textContent = '🎨 正在画…';
+    } else {
+      cardImg.classList.remove('generating');
+      cardImg.textContent = card.emoji;
+    }
+    // 旁白（原话）
+    cardNarration.textContent = card.narration;
+    // 翻页状态
+    cardIndex.textContent = '第 ' + (state.currentIndex + 1) + ' 张 / 共 ' + state.cards.length + ' 张';
+    btnPrev.disabled = state.currentIndex === 0;
+    btnNext.disabled = state.currentIndex === state.cards.length - 1;
+    // 换一张 / 就是这张
+    btnRedraw.disabled = card.generating;
+    btnKeep.disabled = card.generating;
+    // 缩略图条
+    cardStrip.innerHTML = '';
+    state.cards.forEach(function (c, i) {
+      var d = document.createElement('div');
+      d.className = 'thumb' + (i === state.currentIndex ? ' active' : '') + (c.generating ? ' generating' : '');
+      d.textContent = c.generating ? '…' : c.emoji;
+      d.addEventListener('click', function () { state.currentIndex = i; renderCard(); });
+      cardStrip.appendChild(d);
+    });
+  }
+
+  // "换一张"：只重画图，不重拆分镜（方案一）
+  btnRedraw.addEventListener('click', function () {
+    var card = currentCard();
+    if (!card || card.generating) return;
+    card.generating = true;
+    renderCard();
+    toast('正在重新画这一张…');
+    setTimeout(function () {
+      // 模拟换一个 emoji 作为"不同构图"
+      var pool = ['🌙','🏍️','🦷','🧸','🎨','🌈','🐰','☁️','🌳','🎵'];
+      card.emoji = pool[Math.floor(Math.random() * pool.length)];
+      card.generating = false;
+      renderCard();
+      toast('换好啦');
+    }, 1000);
+  });
+
+  // "就是这张"：确认当前卡片，进入下一张或提示继续录
+  btnKeep.addEventListener('click', function () {
+    if (state.currentIndex < state.cards.length - 1) {
+      state.currentIndex++;
+      renderCard();
+    } else {
+      toast('这张已确认。可以继续录下一段');
+    }
+  });
+
+  btnPrev.addEventListener('click', function () {
+    if (state.currentIndex > 0) { state.currentIndex--; renderCard(); }
+  });
+  btnNext.addEventListener('click', function () {
+    if (state.currentIndex < state.cards.length - 1) { state.currentIndex++; renderCard(); }
+  });
+
+  btnBackRecord.addEventListener('click', function () {
+    showView(viewB);
+  });
+
+  // ---------- PIN 弹层 ----------
+  parentEntry.addEventListener('click', function () {
+    openPin(state.pinSet ? 'verify' : 'setup');
+  });
+  function openPin(mode) {
+    state.pinMode = mode; state.pinInput = ''; pinError.textContent = '';
+    if (mode === 'setup') { pinTitle.textContent = '设置家长密码'; pinDesc.textContent = '4 位数字，用于进入家长功能'; }
+    else { pinTitle.textContent = '请输入家长密码'; pinDesc.textContent = '验证后进入家长功能'; }
+    renderPinDots(); renderPinKeys();
+    pinOverlay.classList.add('active');
+  }
+  function closePin() { pinOverlay.classList.remove('active'); }
+  function renderPinDots() {
+    pinDots.innerHTML = '';
+    for (var i = 0; i < 4; i++) {
+      var d = document.createElement('div');
+      d.className = 'pin-dot' + (i < state.pinInput.length ? ' filled' : '');
+      pinDots.appendChild(d);
+    }
+  }
+  function renderPinKeys() {
+    pinKeys.innerHTML = '';
+    var keys = ['1','2','3','4','5','6','7','8','9','','0','del'];
+    keys.forEach(function (k) {
+      var b = document.createElement('button');
+      b.className = 'pin-key' + (k === 'del' ? ' del' : '');
+      b.textContent = k === 'del' ? '⌫' : k;
+      if (k === '') b.style.visibility = 'hidden';
+      b.addEventListener('click', function () { onPinKey(k); });
+      pinKeys.appendChild(b);
+    });
+  }
+  function onPinKey(k) {
+    if (k === 'del') state.pinInput = state.pinInput.slice(0, -1);
+    else if (k !== '' && state.pinInput.length < 4) state.pinInput += k;
+    renderPinDots();
+    if (state.pinInput.length === 4) setTimeout(handlePinComplete, 120);
+  }
+  function handlePinComplete() {
+    if (state.pinMode === 'setup') {
+      state.pinValue = state.pinInput; state.pinSet = true; closePin();
+      toast('家长密码已设置');
+    } else {
+      if (state.pinInput === state.pinValue) { closePin(); toast('验证通过，进入家长端（下一步开发）'); }
+      else { pinError.textContent = '密码不对，再试一次'; state.pinInput = ''; renderPinDots(); }
+    }
+  }
+})();
+</script>
+</body>
+</html>
