@@ -187,10 +187,44 @@
 <script>
 (function () {
   var MOCK_CARDS = [
-    [{ narration: "为什么月亮一直跟着我们 我们走到哪儿 他就在哪儿 它真的好亮啊", visual: "夜晚的路上，一个小孩抬头看着天上又圆又亮的月亮", emoji: "🌙" }],
-    [{ narration: "我们 嗯 妈妈 我们唱歌吧 / 这个哥哥的开着摩托车 好快 轰轰声", visual: "小孩转头看着妈妈，旁边一辆摩托车开过", emoji: "🏍️" }],
-    [{ narration: "阳阳在幼儿园牙齿掉了 然后 然后他哭了", visual: "幼儿园里，一个小孩捂着嘴巴，眼睛下面有泪珠", emoji: "🦷" },
-     { narration: "菲菲要当小组长 管我们不要说话 还要管理玩具 好累的", visual: "一个扎辫子的小女孩站在一群小朋友前面", emoji: "🧸" }]
+    [{ 
+      narration: "为什么月亮一直跟着我们 我们走到哪儿 他就在哪儿 它真的好亮啊", 
+      visual: "夜晚的路上，一个小孩抬头看着天上又圆又亮的月亮", 
+      imageUrl: "把你刚才复制的直接链接粘贴在这里",
+      audioIndex: 0 // 对应第一段录音
+    }],
+    
+    // 第 2 段录音：拆分成了 2 张卡片
+    [
+      { 
+        narration: "我们 嗯 妈妈 我们唱歌吧", 
+        visual: "小孩转头看着妈妈张嘴像要说话", 
+        emoji: "🎵",
+        audioIndex: 1 // 对应第二段录音
+      },
+      { 
+        narration: "这个哥哥的开着摩托车 好快 轰轰声", 
+        visual: "旁边一辆摩托车开过，车轮后面有速度线", 
+        emoji: "🏍️",
+        audioIndex: 1 // 依然是第二段录音
+      }
+    ],
+    
+    // 第 3 段录音：生成 2 张卡片
+    [
+      { 
+        narration: "阳阳在幼儿园牙齿掉了 然后 然后他哭了", 
+        visual: "幼儿园里，一个小孩捂着嘴巴，眼睛下面有泪珠", 
+        emoji: "🦷",
+        audioIndex: 2 
+      },
+      { 
+        narration: "菲菲要当小组长 管我们不要说话 还要管理玩具 好累的", 
+        visual: "一个扎辫子的小女孩站在一群小朋友前面", 
+        emoji: "🧸",
+        audioIndex: 2 
+      }
+    ]
   ];
 
   var state = { 
@@ -273,10 +307,23 @@
     if (segIndex >= MOCK_CARDS.length) return;
     state.generatingSeg = segIndex;
     var group = MOCK_CARDS[segIndex];
-    // 把音频 URL 绑定到卡片数据上
-    var audioUrl = state.audioUrls[segIndex] || null; 
-    group.forEach(function (card) { state.cards.push({ narration: card.narration, visual: card.visual, emoji: card.emoji, generating: true, segIndex: segIndex, audioUrl: audioUrl }); });
     
+    // 【修改这里】使用卡片里定义的 audioIndex 去寻找对应的录音
+    group.forEach(function (card) { 
+      var targetAudioIndex = card.audioIndex !== undefined ? card.audioIndex : segIndex;
+      var audioUrl = state.audioUrls[targetAudioIndex] || null; 
+      
+      state.cards.push({ 
+        narration: card.narration, 
+        visual: card.visual, 
+        emoji: card.emoji, 
+        imageUrl: card.imageUrl,
+        generating: true, 
+        segIndex: segIndex, 
+        audioUrl: audioUrl 
+      }); 
+    });
+   
     setTimeout(function () {
       state.cards.forEach(function (c) { if (c.segIndex === segIndex) { c.generating = false; c.emoji = c.emoji || '🖼️'; } });
       state.generatingSeg = -1;
